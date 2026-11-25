@@ -21,6 +21,7 @@ import { exportResultsAsCSV, exportResultsAsJSON } from './utils/exportResults';
 import {
   generateWikipediaSampleFile,
   triggerFileDownload,
+  type SampleSizeOption,
 } from './utils/sampleGenerator';
 
 const INITIAL_PROGRESS: ExecutionProgress = {
@@ -163,13 +164,31 @@ export default function App() {
     [file, isSampleFile, startHashing],
   );
 
-  const handleLoadSample = useCallback(() => {
-    const sample = generateWikipediaSampleFile(1_048_576);
-    handleSelectFile(sample, true);
-  }, [handleSelectFile]);
+  const handleLoadSample = useCallback(
+    (option: SampleSizeOption) => {
+      const sample = generateWikipediaSampleFile(option.bytes, option.filename);
+      // Adegua automaticamente lo slice se quello corrente è più piccolo del sample scelto
+      const currentLimitBytes =
+        SLICE_OPTIONS.find((o) => o.id === sliceLimitId)?.bytes ?? null;
+      let nextSliceId: SliceLimitId = sliceLimitId;
+      if (currentLimitBytes !== null && option.bytes > currentLimitBytes) {
+        if (option.bytes <= 10_485_760) nextSliceId = '10mb';
+        else if (option.bytes <= 104_857_600) nextSliceId = '100mb';
+        else nextSliceId = 'full';
+        setSliceLimitId(nextSliceId);
+      }
 
-  const handleDownloadSample = useCallback(() => {
-    const sample = generateWikipediaSampleFile(1_048_576);
+      setFile(sample);
+      setIsSampleFile(true);
+      setResults([]);
+      setProgress(INITIAL_PROGRESS);
+      startHashing(sample, nextSliceId, true);
+    },
+    [sliceLimitId, startHashing],
+  );
+
+  const handleDownloadSample = useCallback((option: SampleSizeOption) => {
+    const sample = generateWikipediaSampleFile(option.bytes, option.filename);
     triggerFileDownload(sample);
   }, []);
 

@@ -1,7 +1,21 @@
 /**
- * Generatore di estratto MediaWiki XML (stile enwik9 / Hutter Prize) per test immediati
- * senza dover scaricare preventivamente il file da 1 GB.
+ * Generatore di estratti MediaWiki XML (stile enwik9 / Hutter Prize) in più taglie
+ * (1 MB, 10 MB, 50 MB, 100 MB) per test immediati e download locale senza backend.
  */
+
+export interface SampleSizeOption {
+  id: '1mb' | '10mb' | '50mb' | '100mb';
+  label: string;
+  bytes: number;
+  filename: string;
+}
+
+export const SAMPLE_SIZE_OPTIONS: SampleSizeOption[] = [
+  { id: '1mb', label: '1 MB', bytes: 1_048_576, filename: 'enwik9-sample-1mb.xml' },
+  { id: '10mb', label: '10 MB', bytes: 10_485_760, filename: 'enwik9-sample-10mb.xml' },
+  { id: '50mb', label: '50 MB', bytes: 52_428_800, filename: 'enwik9-sample-50mb.xml' },
+  { id: '100mb', label: '100 MB', bytes: 104_857_600, filename: 'enwik9-sample-100mb.xml' },
+];
 
 const SAMPLE_ARTICLES: Array<{ title: string; id: number; body: string }> = [
   {
@@ -64,32 +78,19 @@ DEFLATE is the core compression algorithm used in [[gzip]], [[zlib]], [[PNG]], a
   },
 ];
 
-/**
- * Genera un File MediaWiki XML sintetico di circa `targetBytes` (default 1 MB)
- * con struttura fedele a `enwik9` (header `<mediawiki>`, revisioni, timestamp, contributori, wikitext).
- */
-export function generateWikipediaSampleFile(targetBytes = 1_048_576): File {
-  const header = `<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.3/" xml:lang="en">
-  <siteinfo>
-    <sitename>Wikipedia</sitename>
-    <base>https://en.wikipedia.org/wiki/Main_Page</base>
-    <generator>MediaWiki 1.6alpha</generator>
-    <case>first-letter</case>
-  </siteinfo>\n`;
-  const footer = `</mediawiki>\n`;
+function buildXmlChunk(chunkIndex: number, targetChunkBytes: number): Uint8Array {
+  const parts: string[] = [];
+  let len = 0;
+  let pageOffset = chunkIndex * 180;
+  const baseRev = 15_800_000 + chunkIndex * 6_700;
 
-  const parts: string[] = [header];
-  let currentBytes = header.length + footer.length;
-  let revisionSeq = 15_800_000;
-  let pageCounter = 0;
-
-  while (currentBytes < targetBytes) {
-    const base = SAMPLE_ARTICLES[pageCounter % SAMPLE_ARTICLES.length];
-    const variant = Math.floor(pageCounter / SAMPLE_ARTICLES.length);
-    const revId = revisionSeq + pageCounter * 37;
-    const day = String((pageCounter % 28) + 1).padStart(2, '0');
-    const hour = String(pageCounter % 24).padStart(2, '0');
-    const minute = String((pageCounter * 7) % 60).padStart(2, '0');
+  while (len < targetChunkBytes) {
+    const base = SAMPLE_ARTICLES[pageOffset % SAMPLE_ARTICLES.length];
+    const variant = Math.floor(pageOffset / SAMPLE_ARTICLES.length);
+    const revId = baseRev + (pageOffset % 180) * 37;
+    const day = String((pageOffset % 28) + 1).padStart(2, '0');
+    const hour = String(pageOffset % 24).padStart(2, '0');
+    const minute = String((pageOffset * 7) % 60).padStart(2, '0');
     const suffix = variant === 0 ? '' : ` (Section ${variant})`;
 
     const pageXml = `  <page>
@@ -99,24 +100,82 @@ export function generateWikipediaSampleFile(targetBytes = 1_048_576): File {
       <id>${revId}</id>
       <timestamp>2006-03-${day}T${hour}:${minute}:12Z</timestamp>
       <contributor>
-        <username>WikiEditor${(pageCounter % 48) + 1}</username>
-        <id>${2000 + (pageCounter % 48)}</id>
+        <username>WikiEditor${(pageOffset % 48) + 1}</username>
+        <id>${2000 + (pageOffset % 48)}</id>
       </contributor>
-      <comment>Copyedit and benchmark metadata update #${pageCounter + 1}</comment>
+      <comment>Copyedit and benchmark metadata update #${pageOffset + 1}</comment>
       <text xml:space="preserve">${base.body}
 == Notes (Rev ${revId}) ==
-Archived snapshot entry #${pageCounter + 1} for lossless compression benchmarking on browser Web Workers. Checksum reference index: ${(revId % 9973).toString(16).toUpperCase()}.</text>
+Archived snapshot entry #${pageOffset + 1} for lossless compression benchmarking on browser Web Workers. Checksum reference index: ${(revId % 9973).toString(16).toUpperCase()}.</text>
     </revision>
   </page>\n`;
 
     parts.push(pageXml);
-    currentBytes += pageXml.length;
-    pageCounter++;
+    len += pageXml.length;
+    pageOffset++;
   }
 
-  parts.push(footer);
-  const blob = new Blob(parts, { type: 'application/xml' });
-  return new File([blob], 'enwik9-sample-1mb.xml', {
+  return new TextEncoder().encode(parts.join(''));
+}
+
+/**
+ * Genera rapidamente un File MediaWiki XML sintetico della dimensione richiesta
+ * (es. 1 MB, 10 MB, 50 MB, 100 MB) riutilizzando un pool di chunk variati da 256 KB
+ * per evitare picchi di memoria e mantenere la generazione istantanea nel browser.
+ */
+export function generateWikipediaSampleFile(
+  targetBytes = 1_048_576,
+  filename?: string,
+): File {
+  const header = `<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.3/" xml:lang="en">
+  <siteinfo>
+    <sitename>Wikipedia</sitename>
+    <base>https://en.wikipedia.org/wiki/Main_Page</base>
+    <generator>MediaWiki 1.6alpha</generator>
+    <case>first-letter</case>
+  </siteinfo>\n`;
+  const footer = `</mediawiki>\n`;
+
+  const encoder = new TextEncoder();
+  const headerBytes = encoder.encode(header);
+  const footerBytes = encoder.encode(footer);
+
+  // Crea un pool di 8 chunk distinti (~256 KB ciascuno, ~2 MB unici) così che
+  // anche file da 50-100 MB si generino in pochi millisecondi senza saturare il GC.
+  const chunkTarget = Math.min(262_144, Math.max(32_768, targetBytes));
+  const poolSize = targetBytes <= 2_097_152 ? Math.ceil(targetBytes / chunkTarget) : 8;
+  const pool: Uint8Array[] = [];
+  for (let i = 0; i < poolSize; i++) {
+    pool.push(buildXmlChunk(i, chunkTarget));
+  }
+
+  const blobParts: BlobPart[] = [headerBytes];
+  let currentBytes = headerBytes.byteLength + footerBytes.byteLength;
+  let chunkSeq = 0;
+
+  while (currentBytes < targetBytes) {
+    const chunk = pool[chunkSeq % pool.length];
+    const remaining = targetBytes - currentBytes;
+    if (chunk.byteLength <= remaining) {
+      blobParts.push(chunk as BlobPart);
+      currentBytes += chunk.byteLength;
+    } else {
+      // Aggiunge un blocco finale troncato in modo pulito su un newline se possibile
+      let cut = remaining;
+      while (cut > 0 && chunk[cut - 1] !== 0x0a) cut--;
+      blobParts.push(chunk.subarray(0, cut > 0 ? cut : remaining) as BlobPart);
+      currentBytes = targetBytes;
+    }
+    chunkSeq++;
+  }
+
+  blobParts.push(footerBytes);
+
+  const mbLabel = Math.max(1, Math.round(targetBytes / 1_048_576));
+  const resolvedName = filename ?? `enwik9-sample-${mbLabel}mb.xml`;
+  const blob = new Blob(blobParts, { type: 'application/xml' });
+
+  return new File([blob], resolvedName, {
     type: 'application/xml',
     lastModified: Date.now(),
   });
@@ -130,5 +189,5 @@ export function triggerFileDownload(file: File): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

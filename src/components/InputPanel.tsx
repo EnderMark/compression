@@ -3,6 +3,7 @@ import {
   Check,
   Copy,
   Download,
+  ExternalLink,
   FileCode2,
   Fingerprint,
   HardDrive,
@@ -22,6 +23,10 @@ import {
   formatExactBytes,
   truncateHash,
 } from '../utils/format';
+import {
+  SAMPLE_SIZE_OPTIONS,
+  type SampleSizeOption,
+} from '../utils/sampleGenerator';
 
 interface InputPanelProps {
   file: File | null;
@@ -32,8 +37,8 @@ interface InputPanelProps {
   isRunning: boolean;
   onSelectFile: (file: File, isSample?: boolean) => void;
   onChangeSlice: (sliceId: SliceLimitId) => void;
-  onLoadSample: () => void;
-  onDownloadSample: () => void;
+  onLoadSample: (option: SampleSizeOption) => void;
+  onDownloadSample: (option: SampleSizeOption) => void;
 }
 
 export function InputPanel({
@@ -51,6 +56,9 @@ export function InputPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
+  const [selectedSampleSize, setSelectedSampleSize] = useState<SampleSizeOption>(
+    SAMPLE_SIZE_OPTIONS[0],
+  );
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -87,28 +95,16 @@ export function InputPanel({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-load-sample"
-            type="button"
-            disabled={isRunning}
-            onClick={onLoadSample}
-            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-40"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Genera XML Wikipedia (1 MB)</span>
-          </button>
-          <button
-            id="btn-download-sample"
-            type="button"
-            onClick={onDownloadSample}
-            className="inline-flex items-center gap-1 rounded-md border border-[#2a3447] bg-[#171d2a] px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-[#1e2638]"
-            title="Scarica il file XML di esempio sul disco"
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Scarica esempio</span>
-          </button>
-        </div>
+        <a
+          href="https://mattmahoney.net/dc/enwik9.zip"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] text-slate-400 transition hover:text-sky-300"
+          title="Scarica il dataset ufficiale enwik9 (1 GB decompresso, ~322 MB .zip)"
+        >
+          <span>enwik9.zip ufficiale (1 GB)</span>
+          <ExternalLink className="h-3 w-3" />
+        </a>
       </div>
 
       {/* Drag & Drop Zone */}
@@ -129,7 +125,7 @@ export function InputPanel({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`group flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-6 text-center transition ${
+        className={`group flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-5 text-center transition ${
           isDragging
             ? 'border-emerald-400 bg-emerald-500/10'
             : 'border-[#323d52] bg-[#0d1119] hover:border-slate-500 hover:bg-[#121824]'
@@ -155,6 +151,61 @@ export function InputPanel({
         <p className="mt-1 text-xs text-slate-400">
           Elaborazione interamente client-side tramite <code className="font-mono text-slate-300">File.slice()</code> — nessun dato lascia il browser
         </p>
+      </div>
+
+      {/* Generatore file XML di esempio multi-taglia */}
+      <div className="mt-3.5 rounded-lg border border-[#232b3b] bg-[#0d1119] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-medium text-slate-300">
+            Genera estratto Wikipedia XML (stile <code className="font-mono text-slate-200">enwik9</code>)
+          </span>
+
+          <div className="inline-flex rounded-md border border-[#232b3b] bg-[#141a26] p-0.5">
+            {SAMPLE_SIZE_OPTIONS.map((opt) => {
+              const active = selectedSampleSize.id === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  id={`sample-size-${opt.id}`}
+                  type="button"
+                  disabled={isRunning}
+                  onClick={() => setSelectedSampleSize(opt)}
+                  className={`rounded px-2 py-0.5 font-mono text-[11px] font-medium transition disabled:opacity-40 ${
+                    active
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <button
+            id="btn-load-sample"
+            type="button"
+            disabled={isRunning}
+            onClick={() => onLoadSample(selectedSampleSize)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Carica nel benchmark ({selectedSampleSize.label})</span>
+          </button>
+
+          <button
+            id="btn-download-sample"
+            type="button"
+            onClick={() => onDownloadSample(selectedSampleSize)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[#2a3447] bg-[#171d2a] px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-[#3b4863] hover:bg-[#1e2638]"
+            title={`Scarica ${selectedSampleSize.filename} sul disco`}
+          >
+            <Download className="h-3.5 w-3.5 text-sky-400" />
+            <span>Scarica file ({selectedSampleSize.label})</span>
+          </button>
+        </div>
       </div>
 
       {/* Slice / Limite dimensione */}
