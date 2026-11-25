@@ -25,13 +25,18 @@ interface AlgorithmListProps {
   onAbortBenchmark: () => void;
 }
 
+import { formatBytes } from '../utils/format';
+
 const CATEGORY_STYLE: Record<string, string> = {
   'Run-Length': 'border-slate-600/60 bg-slate-800/70 text-slate-300',
   Entropy: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
   Dictionary: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
   'Block-Sorting': 'border-teal-500/30 bg-teal-500/10 text-teal-300',
+  Semantic: 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300',
   'Native Stream': 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
 };
+
+const TEXT_ENCODER = new TextEncoder();
 
 export function AlgorithmList({
   algorithms,
@@ -87,6 +92,7 @@ export function AlgorithmList({
           const badgeStyle =
             CATEGORY_STYLE[algo.category] ??
             'border-slate-700 bg-slate-800 text-slate-300';
+          const codeBytes = TEXT_ENCODER.encode(algo.sourceCode).byteLength;
 
           return (
             <div
@@ -124,6 +130,17 @@ export function AlgorithmList({
                       className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium ${badgeStyle}`}
                     >
                       {algo.category}
+                    </span>
+                    <span
+                      className="rounded border border-[#232b3b] bg-[#0e131d] px-1.5 py-0.5 font-mono text-[10px] text-slate-400 tabular-nums"
+                      title={
+                        algo.isNativeEngine
+                          ? 'Dimensione wrapper TS (+ engine zlib nativo del browser)'
+                          : 'Dimensione codice sorgente incluso nell’Hutter Score'
+                      }
+                    >
+                      Codice: {formatBytes(codeBytes, 1)}
+                      {algo.isNativeEngine ? ' + nativo' : ''}
                     </span>
                     <span className="font-mono text-[11px] text-slate-500">
                       {algo.complexity}

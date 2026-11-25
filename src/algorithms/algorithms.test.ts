@@ -4,6 +4,7 @@ import { compressGzip, decompressGzip } from './deflate';
 import { compressHuffman, decompressHuffman } from './huffman';
 import { compressLZSS, decompressLZSS } from './lzss';
 import { compressRLE, decompressRLE } from './rle';
+import { compressSemanticWiki, decompressSemanticWiki } from './semanticWiki';
 import { StreamingCRC32, StreamingSHA256 } from '../utils/hash';
 
 const ALGORITHMS = [
@@ -11,6 +12,7 @@ const ALGORITHMS = [
   { name: 'LZSS', compress: compressLZSS, decompress: decompressLZSS },
   { name: 'Huffman', compress: compressHuffman, decompress: decompressHuffman },
   { name: 'BWT+MTF', compress: compressBwtMtf, decompress: decompressBwtMtf },
+  { name: 'SemanticWiki', compress: compressSemanticWiki, decompress: decompressSemanticWiki },
   { name: 'Gzip', compress: compressGzip, decompress: decompressGzip },
 ];
 

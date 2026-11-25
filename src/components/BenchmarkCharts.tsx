@@ -23,7 +23,7 @@ export function BenchmarkCharts({ results }: BenchmarkChartsProps) {
 
   const maxSize = Math.max(
     valid[0].originalBytes,
-    ...valid.map((r) => r.compressedBytes),
+    ...valid.map((r) => r.totalHutterBytes),
   );
   const maxThroughput = Math.max(
     1,
@@ -47,7 +47,7 @@ export function BenchmarkCharts({ results }: BenchmarkChartsProps) {
         <div className="inline-flex rounded-lg border border-[#232b3b] bg-[#0d1119] p-0.5 text-xs">
           {(
             [
-              { id: 'size', label: 'Dimensione & Ratio' },
+              { id: 'size', label: 'Hutter Size (Dati + Codice)' },
               { id: 'throughput', label: 'Throughput (MB/s)' },
               { id: 'time', label: 'Tempi (ms)' },
             ] as const
@@ -71,6 +71,17 @@ export function BenchmarkCharts({ results }: BenchmarkChartsProps) {
 
       {activeTab === 'size' && (
         <div className="space-y-3.5">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-xs bg-emerald-500" />
+              Dati compressi
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-xs bg-cyan-400" />
+              Codice algoritmo (regola Hutter Prize)
+            </span>
+          </div>
+
           {/* Baseline 100% */}
           <div>
             <div className="mb-1 flex items-center justify-between text-xs">
@@ -92,12 +103,13 @@ export function BenchmarkCharts({ results }: BenchmarkChartsProps) {
           </div>
 
           {valid.map((r) => {
-            const pctOfMax = Math.max(1.5, (r.compressedBytes / maxSize) * 100);
-            const expanded = r.compressedBytes > r.originalBytes;
+            const dataPct = Math.max(1, (r.compressedBytes / maxSize) * 100);
+            const codePct = Math.max(0.4, (r.algorithmCodeBytes / maxSize) * 100);
+            const expanded = r.totalHutterBytes > r.originalBytes;
             return (
               <div key={r.algorithmId}>
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-slate-200">
                       {r.algorithmName}
                     </span>
@@ -108,19 +120,28 @@ export function BenchmarkCharts({ results }: BenchmarkChartsProps) {
                           : 'bg-emerald-500/15 text-emerald-300'
                       }`}
                     >
-                      {formatRatio(r.compressionRatio)} ({formatSavings(r.savingsPercent)})
+                      {formatRatio(r.effectiveRatio)} ({formatSavings(r.effectiveSavingsPercent)})
                     </span>
                   </div>
                   <span className="font-mono text-slate-300 tabular-nums">
-                    {formatBytes(r.compressedBytes)}
+                    {formatBytes(r.totalHutterBytes)}{' '}
+                    <span className="text-slate-500">
+                      ({formatBytes(r.compressedBytes)} + {formatBytes(r.algorithmCodeBytes, 1)} cod.)
+                    </span>
                   </span>
                 </div>
-                <div className="h-3.5 w-full overflow-hidden rounded bg-[#1a2232]">
+                <div className="flex h-3.5 w-full overflow-hidden rounded bg-[#1a2232]">
                   <div
-                    className={`h-full rounded transition-all duration-300 ${
+                    className={`h-full transition-all duration-300 ${
                       expanded ? 'bg-amber-500/80' : 'bg-emerald-500'
                     }`}
-                    style={{ width: `${pctOfMax}%` }}
+                    style={{ width: `${dataPct}%` }}
+                    title={`Dati compressi: ${formatBytes(r.compressedBytes)}`}
+                  />
+                  <div
+                    className="h-full bg-cyan-400 transition-all duration-300"
+                    style={{ width: `${codePct}%` }}
+                    title={`Codice algoritmo: ${formatBytes(r.algorithmCodeBytes, 2)}`}
                   />
                 </div>
               </div>

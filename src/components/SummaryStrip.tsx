@@ -15,8 +15,8 @@ export function SummaryStrip({ results }: SummaryStripProps) {
   const validResults = results.filter((r) => !r.error && r.compressedBytes > 0);
   if (results.length === 0) return null;
 
-  const bestRatio = validResults.reduce<BenchmarkResult | null>(
-    (best, cur) => (!best || cur.compressionRatio > best.compressionRatio ? cur : best),
+  const bestHutter = validResults.reduce<BenchmarkResult | null>(
+    (best, cur) => (!best || cur.totalHutterBytes < best.totalHutterBytes ? cur : best),
     null,
   );
 
@@ -33,21 +33,21 @@ export function SummaryStrip({ results }: SummaryStripProps) {
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-xl border border-[#232b3b] bg-[#111620] p-4">
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Miglior Rapporto</span>
+          <span>Miglior Hutter Ratio (Dati+Codice)</span>
           <Award className="h-4 w-4 text-emerald-400" />
         </div>
         <div className="mt-2 flex items-baseline gap-2">
           <span className="font-mono text-2xl font-bold text-slate-100 tabular-nums">
-            {bestRatio ? formatRatio(bestRatio.compressionRatio) : '—'}
+            {bestHutter ? formatRatio(bestHutter.effectiveRatio) : '—'}
           </span>
-          {bestRatio && (
+          {bestHutter && (
             <span className="font-mono text-xs font-medium text-emerald-400 tabular-nums">
-              {formatSavings(bestRatio.savingsPercent)}
+              {formatSavings(bestHutter.effectiveSavingsPercent)}
             </span>
           )}
         </div>
         <div className="mt-1 truncate text-xs text-slate-500">
-          {bestRatio ? bestRatio.algorithmName : 'Nessun risultato valido'}
+          {bestHutter ? bestHutter.algorithmName : 'Nessun risultato valido'}
         </div>
       </div>
 
@@ -66,15 +66,15 @@ export function SummaryStrip({ results }: SummaryStripProps) {
 
       <div className="rounded-xl border border-[#232b3b] bg-[#111620] p-4">
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Dimensione minima ottenuta</span>
+          <span>Miglior Hutter Score Totale</span>
           <HardDriveDownload className="h-4 w-4 text-amber-400" />
         </div>
         <div className="mt-2 font-mono text-2xl font-bold text-slate-100 tabular-nums">
-          {bestRatio ? formatBytes(bestRatio.compressedBytes) : '—'}
+          {bestHutter ? formatBytes(bestHutter.totalHutterBytes) : '—'}
         </div>
         <div className="mt-1 font-mono text-xs text-slate-500 tabular-nums">
-          {bestRatio
-            ? `da ${formatBytes(bestRatio.originalBytes)} (${bestRatio.bitsPerByte.toFixed(2)} bpb)`
+          {bestHutter
+            ? `${formatBytes(bestHutter.compressedBytes)} dati + ${formatBytes(bestHutter.algorithmCodeBytes, 1)} codice`
             : '—'}
         </div>
       </div>

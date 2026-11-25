@@ -24,14 +24,15 @@ interface ResultsTableProps {
 }
 
 type SortKey =
-  | 'compressionRatio'
+  | 'effectiveRatio'
+  | 'totalHutterBytes'
   | 'compressedBytes'
   | 'compressTimeMs'
   | 'decompressTimeMs'
   | 'compressThroughputMBs';
 
 export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('compressionRatio');
+  const [sortKey, setSortKey] = useState<SortKey>('effectiveRatio');
   const [sortAsc, setSortAsc] = useState(false);
 
   const sorted = useMemo(() => {
@@ -49,7 +50,12 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
       setSortAsc((prev) => !prev);
     } else {
       setSortKey(key);
-      setSortAsc(key === 'compressedBytes' || key === 'compressTimeMs' || key === 'decompressTimeMs');
+      setSortAsc(
+        key === 'compressedBytes' ||
+          key === 'totalHutterBytes' ||
+          key === 'compressTimeMs' ||
+          key === 'decompressTimeMs',
+      );
     }
   };
 
@@ -70,11 +76,11 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
 
   return (
     <section className="overflow-hidden rounded-xl border border-[#232b3b] bg-[#111620]">
-      <div className="flex items-center justify-between border-b border-[#232b3b] px-4 py-3.5 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#232b3b] px-4 py-3.5 sm:px-5">
         <div className="flex items-center gap-2">
           <Table2 className="h-4 w-4 text-sky-400" />
           <h2 className="text-sm font-semibold text-slate-100">
-            Tabella Comparativa Metriche
+            Tabella Comparativa Metriche (Hutter Prize: Dati + Codice)
           </h2>
         </div>
         <span className="font-mono text-[11px] text-slate-500">
@@ -83,7 +89,7 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] border-collapse text-left text-xs">
+        <table className="w-full min-w-[1060px] border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-[#232b3b] bg-[#0d1119] text-[11px] uppercase tracking-wider text-slate-400">
               <th className="px-4 py-3 font-medium">Algoritmo</th>
@@ -100,10 +106,20 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
               <th className="px-4 py-3 font-medium">
                 <button
                   type="button"
-                  onClick={() => toggleSort('compressionRatio')}
+                  onClick={() => toggleSort('totalHutterBytes')}
                   className="inline-flex items-center gap-1 hover:text-slate-200"
                 >
-                  <span>Ratio / Risparmio</span>
+                  <span>Hutter Score (Dati + Codice)</span>
+                  <ArrowUpDown className="h-3 w-3 opacity-60" />
+                </button>
+              </th>
+              <th className="px-4 py-3 font-medium">
+                <button
+                  type="button"
+                  onClick={() => toggleSort('effectiveRatio')}
+                  className="inline-flex items-center gap-1 hover:text-slate-200"
+                >
+                  <span>Ratio Effettivo</span>
                   <ArrowUpDown className="h-3 w-3 opacity-60" />
                 </button>
               </th>
@@ -133,7 +149,7 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
           </thead>
           <tbody className="divide-y divide-[#1e2636]">
             {sorted.map((r) => {
-              const expanded = r.compressedBytes > r.originalBytes;
+              const expanded = r.totalHutterBytes > r.originalBytes;
               return (
                 <tr
                   key={r.algorithmId}
@@ -183,7 +199,24 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
                     )}
                   </td>
 
-                  {/* Ratio & Risparmio */}
+                  {/* Hutter Score (Dati + Codice) */}
+                  <td className="px-4 py-3 font-mono tabular-nums">
+                    {r.error ? (
+                      <span className="text-slate-500">—</span>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-cyan-300">
+                          {formatBytes(r.totalHutterBytes)}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          +{formatBytes(r.algorithmCodeBytes, 1)} codice
+                          {r.isNativeEngine ? ' (+ zlib nativo)' : ''}
+                        </div>
+                      </>
+                    )}
+                  </td>
+
+                  {/* Ratio Effettivo & Risparmio */}
                   <td className="px-4 py-3 font-mono tabular-nums">
                     {r.error ? (
                       <span className="text-slate-500">—</span>
@@ -191,7 +224,7 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
                       <>
                         <div className="flex items-center gap-1.5">
                           <span className="font-semibold text-slate-100">
-                            {formatRatio(r.compressionRatio)}
+                            {formatRatio(r.effectiveRatio)}
                           </span>
                           <span
                             className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
@@ -200,11 +233,11 @@ export function ResultsTable({ results, onInspectById }: ResultsTableProps) {
                                 : 'bg-emerald-500/15 text-emerald-300'
                             }`}
                           >
-                            {formatSavings(r.savingsPercent)}
+                            {formatSavings(r.effectiveSavingsPercent)}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          {r.bitsPerByte.toFixed(2)} bit/byte
+                          Puro: {formatRatio(r.compressionRatio)} · {r.bitsPerByte.toFixed(2)} bpb
                         </div>
                       </>
                     )}

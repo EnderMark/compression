@@ -211,9 +211,14 @@ async function handleRunBenchmark(
         });
       });
 
+      const algorithmCodeBytes = new TextEncoder().encode(algo.sourceCode).byteLength;
+      const totalHutterBytes = compressedBytes + algorithmCodeBytes;
       const compressionRatio = compressedBytes > 0 ? originalBytes / compressedBytes : 0;
+      const effectiveRatio = totalHutterBytes > 0 ? originalBytes / totalHutterBytes : 0;
       const savingsPercent =
         originalBytes > 0 ? (1 - compressedBytes / originalBytes) * 100 : 0;
+      const effectiveSavingsPercent =
+        originalBytes > 0 ? (1 - totalHutterBytes / originalBytes) * 100 : 0;
       const bitsPerByte = originalBytes > 0 ? (compressedBytes * 8) / originalBytes : 0;
 
       const memory: MemoryMeasurement = {
@@ -229,10 +234,15 @@ async function handleRunBenchmark(
         algorithmName: algo.name,
         shortName: algo.shortName,
         category: algo.category,
+        isNativeEngine: Boolean(algo.isNativeEngine),
         originalBytes,
         compressedBytes,
+        algorithmCodeBytes,
+        totalHutterBytes,
         compressionRatio,
+        effectiveRatio,
         savingsPercent,
+        effectiveSavingsPercent,
         bitsPerByte,
         compressTimeMs,
         decompressTimeMs,
@@ -247,15 +257,21 @@ async function handleRunBenchmark(
       post({ type: 'ALGORITHM_RESULT', result });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      const algorithmCodeBytes = new TextEncoder().encode(algo.sourceCode).byteLength;
       const result: BenchmarkResult = {
         algorithmId: algo.id,
         algorithmName: algo.name,
         shortName: algo.shortName,
         category: algo.category,
+        isNativeEngine: Boolean(algo.isNativeEngine),
         originalBytes,
         compressedBytes: 0,
+        algorithmCodeBytes,
+        totalHutterBytes: algorithmCodeBytes,
         compressionRatio: 0,
+        effectiveRatio: 0,
         savingsPercent: 0,
+        effectiveSavingsPercent: 0,
         bitsPerByte: 0,
         compressTimeMs: 0,
         decompressTimeMs: 0,

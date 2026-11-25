@@ -20,6 +20,8 @@ export interface CompressionAlgorithm {
   sourceFile: string;
   /** Codice sorgente TypeScript grezzo importato tramite Vite `?raw` */
   sourceCode: string;
+  /** True se delega a un engine nativo del browser (es. CompressionStream/zlib) */
+  isNativeEngine?: boolean;
   /**
    * Comprime un buffer di byte in modo strettamente lossless.
    * Può essere sincrono o asincrono (es. CompressionStream API).
@@ -92,12 +94,21 @@ export interface BenchmarkResult {
   algorithmName: string;
   shortName: string;
   category: string;
+  isNativeEngine: boolean;
   originalBytes: number;
   compressedBytes: number;
-  /** Rapporto di compressione: originalBytes / compressedBytes (es. 3.42x) */
+  /** Dimensione del codice sorgente dell'algoritmo (UTF-8 byte) — metrica Hutter Prize */
+  algorithmCodeBytes: number;
+  /** Hutter Score totale: compressedBytes + algorithmCodeBytes */
+  totalHutterBytes: number;
+  /** Rapporto di compressione puro: originalBytes / compressedBytes */
   compressionRatio: number;
-  /** Percentuale di risparmio: (1 - compressed / original) * 100 (negativo se espande) */
+  /** Rapporto effettivo Hutter Prize: originalBytes / (compressedBytes + algorithmCodeBytes) */
+  effectiveRatio: number;
+  /** Percentuale di risparmio puro: (1 - compressed / original) * 100 */
   savingsPercent: number;
+  /** Percentuale di risparmio effettivo Hutter: (1 - totalHutterBytes / original) * 100 */
+  effectiveSavingsPercent: number;
   /** Bit per carattere / byte (BPC = compressedBytes * 8 / originalBytes) */
   bitsPerByte: number;
   compressTimeMs: number;

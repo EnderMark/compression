@@ -15,6 +15,9 @@ import deflateSource from './deflate.ts?raw';
 import { compressBwtMtf, decompressBwtMtf } from './bwtMtf';
 import bwtMtfSource from './bwtMtf.ts?raw';
 
+import { compressSemanticWiki, decompressSemanticWiki } from './semanticWiki';
+import semanticWikiSource from './semanticWiki.ts?raw';
+
 /**
  * Registro centralizzato degli algoritmi di compressione (architettura a plugin).
  * Aggiungere un nuovo algoritmo qui lo rende automaticamente disponibile nella UI,
@@ -74,6 +77,19 @@ export const COMPRESSION_ALGORITHMS: CompressionAlgorithm[] = [
     decompress: decompressBwtMtf,
   },
   {
+    id: 'semantic-wiki',
+    name: 'Semantic Wiki-XML + WordDict',
+    shortName: 'Semantic',
+    category: 'Semantic',
+    description:
+      'Pipeline semantica a 3 stadi stile Hutter Prize: schema MediaWiki XML + dizionario dinamico di parole (top 254/blocco) + Canonical Huffman.',
+    complexity: 'O(N) — Semantico',
+    sourceFile: 'src/algorithms/semanticWiki.ts',
+    sourceCode: semanticWikiSource,
+    compress: compressSemanticWiki,
+    decompress: decompressSemanticWiki,
+  },
+  {
     id: 'gzip-native',
     name: 'Deflate / Gzip (Native)',
     shortName: 'Gzip',
@@ -83,6 +99,7 @@ export const COMPRESSION_ALGORITHMS: CompressionAlgorithm[] = [
     complexity: 'Native C++ — Riferimento',
     sourceFile: 'src/algorithms/deflate.ts',
     sourceCode: deflateSource,
+    isNativeEngine: true,
     compress: compressGzip,
     decompress: decompressGzip,
   },
